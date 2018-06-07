@@ -102,4 +102,4 @@ ggplot(custdata, aes(x=marital.stat)) +
   geom_bar(aes(fill = health.ins), position = "fill") +
   geom_point(aes(y=-0.05), size = 0.75, alpha = 0.3,
              position = position_jitter(h=0.01))
-# 러그는 데이터가 많은 곳에서는 뺵뺵하게 그려지고, 데이터가 적으면 등ㅁ성듬성하게 그려진다.
+# 러그는 데이터가 많은 곳에서는 뺵뺵하게 그려지고, 데이터가 적으면 성듬성하게 그려진다.
