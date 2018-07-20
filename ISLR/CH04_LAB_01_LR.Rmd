@@ -1,0 +1,175 @@
+---
+title: "4.6 Lab: Logistic Regression, LDA, QDA, and KNN"
+output: html_notebook
+---
+<br>
+우선 ISLR 패키지를 불러오도록 한다.
+```{r}
+library(ISLR)
+```
+
+## 4.6.1 The Stock Market Data<br><br>
+Smarket data는 주식 시장 데이터이며, 2001년부터 2005년까지 총 1,250일 동안의 S&P500 주가지수에 대한 수익률로 구성되어 있다.
+
+```{r}
+head(Smarket, 3)
+```
+각 날짜에 대하여 이전 5일 동안의 수익률(Lag1에서 Lag5)이 기록되어 있다. Volume은 이전 날의 주식거래량이며 십억 단위이다. Today는 당일 수익률이다. 마지막으로 Direction은 당일 수익률이 양수인지 음수인지 UP/DOWN으로 나타내며, 결고변수로 활용될 것이다.
+
+```{r}
+names(Smarket)
+```
+데이터 세트의 변수명은 names()를 통해서 알 수 있다.
+
+```{r}
+dim(Smarket)
+```
+데이터 세트의 행과 열의 개수를 dim()을 통해서 알 수 있다.
+
+```{r}
+summary(Smarket)
+```
+summary()는 데이터 세트의 기본적인 통계량을 알려준다.
+
+```{r}
+cor(Smarket[,-9])
+```
+cor() 함수는 데이터셋의 변수들 간의 상관관계를 행렬로 나타낸다.
+
+여기서 Direction변수의 경우에는 정성데이터이기 때문에 제외하고 계산하였다.<br>
+
+Lag변수와 Today변수간에는 매우 약한 상관관계가 있는 것을 확인할 수 있다. Lag 변수가 당일 전의 수익률을 나타내기 떄문에 전날의 수익률과 오늘의 수익률에는 상관관계가 거의 없는 것으로 보야도 무방하다.<br>
+
+다만, 그나마 Year변수와 Volume변수 간에 유의미한 상관관계가 있는 것을 확인할 수 있다.
+
+```{r}
+attach(Smarket)
+plot(Volume)
+```
+Index가 시간 순서인 점을 감안할 때, 산점도를 통해서 Volume은 시간이 지남에 따라서 증가하는 것을 확인할 수 있다. 
+
+즉, 2001년부터 2005년까지 거래량의 평균은 증가하였다고 말할 수 있다.
+<br>
+<br>
+
+## 4.6.2 Logistic Regression <br>
+이 데이터 세트에 로지스틱 회귀 모델을 적용하여, 예측변수인 Lag와 Volume을 통해서 결과변수인 Direction을 예측할 것이다.
+
+```{r}
+glm.fits = 
+  glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+      family = binomial,
+      data = Smarket)
+
+summary(glm.fits)
+```
+glm()은 일반선형모형 함수로 로지스틱 회귀 분석 기능을 포함하고 있다. 다만, 로지스틱 회귀를 실행하기 위해서는 family = binomial을 입력해야 한다.
+<br>
+여기서 가장 작은 유의확률(p-value)은 Lag1에 있다. (p-value 값은 <b><u>Pr(>|z|)</u></b>에서 알 수 있다.)
+
+이때 Lag1변수의 계수가 음수이기 때문에 이는 익어제 수익을 거두었다면 오늘은 수익을 더 거두기 힘들 것이라는걸 의미한다.
+
+하지만 유의확률(p-value)가 0.145인 것은 유의하다고 보기엔 너무 큰 값이기 때문에 Lag1과 Direction이 유의미한 관계가 있다고만은 볼 수 없다.
+
+
+```{r}
+coef(glm.fits)
+summary(glm.fits)$coef
+summary(glm.fits)$coef[,4]
+```
+훈련된 모델의 계수를 알기 위해서는 coef()를 사용하면 된다.
+
+summary()를 통해서도 계수를 확인할 수 있다.
+
+```{r}
+glm.probs = predict(glm.fits, type="response")
+glm.probs[1:10]
+contrasts(Direction)
+```
+predict()는 예측변수의 값이 주어졌을 때 당일 수익률이 양수가 될지의 확률을 예측해준다.
+
+<b><u>type = "response"</u></b>인자는 R에게 로짓(logit)과 같은 정보가 아닌 P(Y=1|X) 형태의 확률을 출력하라고 명령한다. 이는 다른 데이터 세트가 훈련되기 전까지 해당 확률을 유지하게 된다.
+
+contrast()는 당일 수익률 변동을 더미변수로 만들었다는 것을 보여준다. 이를 통해서 UP = 1임을 알 수 있다.
+
+```{r}
+glm.pred = rep("Down", 1250)
+glm.pred[glm.probs > .5] = "Up"
+```
+rep()은 반복하고자 하는 데이터를 지정된 횟수만큼 만들어 벡터로 반환한다. 그리고 glm.probs의 확률 중 50%를 넘는 경우를 T/F로 마스킹하여 같은 위치에 해당하는 glm.pred의 데이터를 "UP"으로 변경하였다.
+
+```{r}
+table(glm.pred, Direction)
+(507+145)/1250
+mean(glm.pred == Direction)
+```
+이 모형은 맞출 확률이 50%를 조금 넘기기 떄문에 개인이 임의로 찍는 것보다 조금 더 좋게 예측을 해주는 것으로 보인다.
+
+하지만 이 결과는 잘못되었다. 왜냐하면 이 모델은 똑같은 한 세트 안에 있는 같은 데이터 1250개를 가지고 훈련을 하고 또 테스트를 했기 때문이다. 따라서 이 경우에는 1 - 0.522 = 0.478, 47.8%의 training error rate가 있다고 보면 된다.
+
+로지스틱 회귀 모델의 정확도를 더 잘 측정하기 위해서는 데이터 세트의 일부를 훈련시키고 남은 부분은 모델이 예측을 얼마나 정확하게 하는지 검사하는 용도로 쓰면 된다.
+
+이런 과정을 통해서 오차율을 구하는 것이 더 현실적이다. 왜냐하면 새로운 데이터에 대하여 얼마나 더 예측을 잘 할 것인가에 관심이 있기 떄문이다.
+
+이 과정을 실행하기 위해서 일단 2001 ~ 2004년까지의 관측치를 가지고 있는 벡터를 따로 만들어야 한다.
+
+
+아래는 위와 동일한 과정이되 다만 훈련세트와 테스트세트를 나누어서 진행한 것이다.
+```{r}
+train = (Year<2005)
+Smarket.2005 = Smarket[!train, ]
+dim(Smarket.2005)
+
+Direction.2005 = Direction[!train]
+```
+
+```{r}
+glm.fits = glm(Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + Volume,
+             data = Smarket,
+             family = binomial,
+             subset = train)
+
+glm.probs = predict(glm.fits,
+                    Smarket.2005,
+                    type = "response")
+```
+glm 내의 subset 인자를 통해서 훈련데이터만을 적용하였다.
+predict()에선 훈련세트를 통해서 생성된 로지스틱회귀 모델로 테스트세트의 Direction을 예측한다.
+
+
+```{r}
+glm.pred = rep("Down", 252)
+glm.pred[glm.probs > 0.5] = "Up"
+table(glm.pred, Direction.2005)
+
+mean(glm.pred == Direction.2005)
+mean(glm.pred != Direction.2005)
+```
+충격적이게도 이 모델은 임의로 찍는 것보다도 성능이 좋지 않게 나왔따. 여기서 테스트세트의 에러율은 약 52%이기 떄문이다. 근데 사람들이 단순히 이전 날의 수익율만을 보고 주식을 사지는 않는다는 점을 생각할 때 그렇게 충격적인건 또 아니다. 
+
+이번에는 그럼 별로 도움이 되지 않아보이는 예측변수들을 제하고 모델을 만들어보자.
+아까 예측변수들의 p-value를 구한 표를 참고해서 사용할 변수들만 모아보자.
+
+```{r}
+glm.fits = glm(Direction ~ Lag1 + Lag2,
+               data = Smarket,
+               family = binomial,
+               subset = train)
+glm.probs = predict(glm.fits,
+                    Smarket.2005,
+                    type = "response")
+glm.pred = rep("Down", 252)
+glm.pred[glm.probs > 0.5] = "Up"
+table(glm.pred, Direction.2005)
+mean(glm.pred == Direction.2005)
+106/(106+76)
+```
+특정 변수만 투입을 한 결과 정확도는 56%로 이전 결과보다 조금 더 좋아졌다. 그래도 에러율을 보았을 때 임의로 선택하는 방법보다 아주 나은 것은 아니다. 하지만 confusion matrix에서 모델이 시장의 증가를 예측하는 날에는 58%의 정확도를 보여준다.
+
+```{r}
+predict(glm.fits, 
+        newdata = data.frame(Lag1 = c(1.2, 1.5),
+                             Lag2 = c(1.1, -0.8)),
+        type = "response")
+```
+특정한 날의 값을 예측하고 싶을 떄에는 다음과 같이 코드를 작성하면 됩니다.
